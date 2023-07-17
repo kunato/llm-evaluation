@@ -1,6 +1,8 @@
 import json
+import numpy as np
 import tensor_parallel as tp
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 from transformers import (
     LlamaForCausalLM,
@@ -124,19 +126,35 @@ class EvalHandler:
 
         return input_tokens
 
+    @torch.no_grad()
     def batch_infer(self, prompts):
         batch_size = 8
         answers = []
         for batch_input in tqdm(self.batch_split(prompts, batch_size)):
             encode_inputs = self.prepare_input(batch_input)
-            outputs = self.model.generate(
-                **encode_inputs,
-                max_new_tokens=1,
-                pad_token_id=self.tokenizer.pad_token_id,
-            )
-            answers.extend(
-                self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            )
+
+            logits = self.model(input_ids=encode_inputs["input_ids"]).logits[:, -1, :]
+            preds = []
+            for i in range(logits.shape[0]):
+                prob = (
+                    F.softmax(
+                        torch.tensor(
+                            [
+                                logits[i, self.tokenizer("A").input_ids[-1]],
+                                logits[i, self.tokenizer("B").input_ids[-1]],
+                                logits[i, self.tokenizer("C").input_ids[-1]],
+                                logits[i, self.tokenizer("D").input_ids[-1]],
+                            ]
+                        ).float(),
+                        dim=0,
+                    )
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+                pred = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(prob)]
+                preds.append(pred)
+            answers.extend(preds)
         answers = [answer[-1] for answer in answers]
         return answers
 
