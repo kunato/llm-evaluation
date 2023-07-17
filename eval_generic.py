@@ -31,8 +31,11 @@ def compute_metric(output_filename):
 
 
 class EvalHandler:
-    def __init__(self, pretrained_or_path, model_type, language="en") -> None:
-        self.choices = ["A", "B", "C", "D"]
+    def __init__(
+        self, pretrained_or_path, model_type, max_length, n_choice=4, language="en"
+    ) -> None:
+        self.choices = ["A", "B", "C", "D"] if n_choice == 4 else ["A", "B"]
+        self.max_length = max_length
         model, tokenizer = self.load(pretrained_or_path, model_type)
         self.model = model
         self.tokenizer = tokenizer
@@ -96,6 +99,7 @@ class EvalHandler:
     def format_example(self, df, idx, include_answer=True):
         prompt = df.iloc[idx, 0]
         k = df.shape[1] - 2
+        assert k == len(self.choices)
         for j in range(k):
             prompt += "\n{}. {}".format(self.choices[j], df.iloc[idx, j + 1])
         prompt += f"\n{self.answer_label}"
@@ -140,10 +144,8 @@ class EvalHandler:
                     F.softmax(
                         torch.tensor(
                             [
-                                logits[i, self.tokenizer("A").input_ids[-1]],
-                                logits[i, self.tokenizer("B").input_ids[-1]],
-                                logits[i, self.tokenizer("C").input_ids[-1]],
-                                logits[i, self.tokenizer("D").input_ids[-1]],
+                                logits[i, self.tokenizer(char).input_ids[-1]]
+                                for char in self.choices
                             ]
                         ).float(),
                         dim=0,
@@ -170,13 +172,33 @@ class EvalHandler:
             batch_prompts.append(mini_batch)
         return batch_prompts
 
+    def _warmup(self):
+        input_doc = f"Hello, "
+        inputs = self.tokenizer(input_doc, return_tensors="pt")
+        generate_ids = self.model.generate(
+            inputs.input_ids,
+            attention_mask=inputs.attention_mask,
+            do_sample=False,
+            num_beams=4,
+            max_length=128,
+            early_stopping=True,
+        )
+
+        decoded = self.tokenizer.batch_decode(
+            generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0]
+        print(f">>> {decoded}")
+
     def evaluate(self, dev_df, test_df, task, debug=False):
+        self._warmup()
         records = []
         for i in range(test_df.shape[0]):
             prompt_end = self.format_example(test_df, i, include_answer=False)
             train_prompt = self.gen_prompt(dev_df, task)
             prompt = train_prompt + prompt_end
-            while len(self.tokenizer.tokenize(prompt)) + 1 > 2048:  # bos token
+            while (
+                len(self.tokenizer.tokenize(prompt)) + 1 > self.max_length
+            ):  # bos token
                 prompt_split = prompt.split("\n\n")
                 prompt_split.pop(1)
                 prompt = "\n\n".join(prompt_split)

@@ -13,13 +13,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", required=True)
     parser.add_argument("--model_type", required=True)
+    parser.add_argument("--max_length", type=int, default=2048)
     args = parser.parse_args()
-    model_type = args.model_type
+
     model_name = args.model_name
 
     data_dir = "data_xcopa"
 
-    handler = EvalHandler(model_name, model_type, language="th")
+    handler = EvalHandler(
+        model_name, args.model_type, max_length=args.max_length, n_choice=2
+    )
     run_results = {}
     start_time = time.time()
     for task in TASKS:
@@ -31,7 +34,9 @@ if __name__ == "__main__":
         )
         resp = handler.evaluate(dev_df, test_df, task)
         run_results[task] = resp
-    output_filename = "run_results_%s.json" % (model_name)
+
+    model_name_escape = model_name.replace("/", "-")
+    output_filename = f"run_results_{model_name_escape}.json"
     with open(output_filename, "w") as f:
         json.dump(run_results, f, ensure_ascii=False, indent=2)
     compute_metric(output_filename)
