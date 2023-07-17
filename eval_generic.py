@@ -46,6 +46,7 @@ class EvalHandler:
         model, tokenizer = self.load(pretrained_or_path, model_type)
         self.model = model
         self.tokenizer = tokenizer
+        self.warmup_state = False
         if language == "en":
             self.answer_label = "Answer:"
             self.instruction = "The following are multiple choice questions (with answers) about {}.\n\n"
@@ -179,6 +180,8 @@ class EvalHandler:
         return batch_prompts
 
     def _warmup(self):
+        if self.warmup_state:
+            return
         input_doc = f"Hello, "
         inputs = self.tokenizer(input_doc, return_tensors="pt").to("cuda")
         generate_ids = self.model.generate(
@@ -193,6 +196,7 @@ class EvalHandler:
             generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )[0]
         print(f">>> {decoded}")
+        self.warmup_state = True
 
     def evaluate(self, dev_df, test_df, task, debug=False):
         self._warmup()
