@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", required=True)
     parser.add_argument("--model_type", required=True)
     parser.add_argument("--max_length", type=int, default=2048)
+    parser.add_argument("--batch_size", type=int, default=8)
     args = parser.parse_args()
 
     model_name = args.model_name
@@ -21,7 +22,11 @@ if __name__ == "__main__":
     data_dir = "data_xcopa"
 
     handler = EvalHandler(
-        model_name, args.model_type, max_length=args.max_length, n_choice=2
+        model_name,
+        args.model_type,
+        max_length=args.max_length,
+        n_choice=2,
+        batch_size=args.batch_size,
     )
     run_results = {}
     start_time = time.time()

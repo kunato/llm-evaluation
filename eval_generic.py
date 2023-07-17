@@ -32,10 +32,17 @@ def compute_metric(output_filename):
 
 class EvalHandler:
     def __init__(
-        self, pretrained_or_path, model_type, max_length, n_choice=4, language="en"
+        self,
+        pretrained_or_path,
+        model_type,
+        max_length,
+        n_choice=4,
+        batch_size=8,
+        language="en",
     ) -> None:
         self.choices = ["A", "B", "C", "D"] if n_choice == 4 else ["A", "B"]
         self.max_length = max_length
+        self.batch_size = batch_size
         model, tokenizer = self.load(pretrained_or_path, model_type)
         self.model = model
         self.tokenizer = tokenizer
@@ -132,9 +139,8 @@ class EvalHandler:
 
     @torch.no_grad()
     def batch_infer(self, prompts):
-        batch_size = 8
         answers = []
-        for batch_input in tqdm(self.batch_split(prompts, batch_size)):
+        for batch_input in tqdm(self.batch_split(prompts, self.batch_size)):
             encode_inputs = self.prepare_input(batch_input)
 
             logits = self.model(**encode_inputs).logits[:, -1, :]
@@ -179,7 +185,6 @@ class EvalHandler:
             inputs.input_ids,
             attention_mask=inputs.attention_mask,
             do_sample=False,
-            num_beams=1,
             max_length=128,
             early_stopping=True,
         )
