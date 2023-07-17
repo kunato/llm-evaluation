@@ -133,7 +133,7 @@ class EvalHandler:
         for batch_input in tqdm(self.batch_split(prompts, batch_size)):
             encode_inputs = self.prepare_input(batch_input)
 
-            logits = self.model(input_ids=encode_inputs["input_ids"]).logits[:, -1, :]
+            logits = self.model(**encode_inputs).logits[:, -1, :]
             preds = []
             for i in range(logits.shape[0]):
                 prob = (

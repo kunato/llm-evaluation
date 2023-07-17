@@ -1,3 +1,4 @@
+import argparse
 import json
 from eval_generic import EvalHandler, compute_metric
 import time
@@ -67,9 +68,14 @@ TASKS = [
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", required=True)
+    parser.add_argument("--model_type", required=True)
+    args = parser.parse_args()
+    model_type = args.model_type
+    model_name = args.model_name
+
     data_dir = "data_mmlu"
-    model_type = "gpt2"
-    model_name = "gpt2"
 
     handler = EvalHandler(model_name, model_type)
     run_results = {}
