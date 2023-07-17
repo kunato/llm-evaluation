@@ -5,3 +5,4 @@ tensor_parallel
 argparse
 einops
 accelerate
+sentencepiece
