@@ -174,12 +174,12 @@ class EvalHandler:
 
     def _warmup(self):
         input_doc = f"Hello, "
-        inputs = self.tokenizer(input_doc, return_tensors="pt")
+        inputs = self.tokenizer(input_doc, return_tensors="pt").to("cuda")
         generate_ids = self.model.generate(
             inputs.input_ids,
             attention_mask=inputs.attention_mask,
             do_sample=False,
-            num_beams=4,
+            num_beams=1,
             max_length=128,
             early_stopping=True,
         )
