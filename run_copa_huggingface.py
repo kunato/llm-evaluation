@@ -13,7 +13,7 @@ if __name__ == "__main__":
     model_type = "gpt2"
     model_name = "gpt2"
 
-    handler = EvalHandler(model_name, model_type)
+    handler = EvalHandler(model_name, model_type, language="th")
     run_results = {}
     start_time = time.time()
     for task in TASKS:

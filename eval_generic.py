@@ -29,11 +29,19 @@ def compute_metric(output_filename):
 
 
 class EvalHandler:
-    def __init__(self, pretrained_or_path, model_type) -> None:
+    def __init__(self, pretrained_or_path, model_type, language="en") -> None:
         self.choices = ["A", "B", "C", "D"]
         model, tokenizer = self.load(pretrained_or_path, model_type)
         self.model = model
         self.tokenizer = tokenizer
+        if language == "en":
+            self.answer_label = "Answer:"
+            self.instruction = "The following are multiple choice questions (with answers) about {}.\n\n"
+        elif language == "th":
+            self.answer_label = "คำตอบ:"
+            self.instruction = "โปรดเลือกคำตอบที่ถูกต้องที่สุด\n\n"
+        else:
+            raise NotImplementedError()
 
     def load(self, pretrained_or_path, model_type):
         n_gpus = torch.cuda.device_count()
@@ -81,22 +89,20 @@ class EvalHandler:
         s = ""
         for entry in l:
             s += " " + entry
-        return s
+        return s.strip()
 
     def format_example(self, df, idx, include_answer=True):
         prompt = df.iloc[idx, 0]
         k = df.shape[1] - 2
         for j in range(k):
             prompt += "\n{}. {}".format(self.choices[j], df.iloc[idx, j + 1])
-        prompt += "\nAnswer:"
+        prompt += f"\n{self.answer_label}"
         if include_answer:
             prompt += " {}\n\n".format(df.iloc[idx, k + 1])
         return prompt
 
     def gen_prompt(self, train_df, subject, k=-1):
-        prompt = "The following are multiple choice questions (with answers) about {}.\n\n".format(
-            self.format_subject(subject)
-        )
+        prompt = self.instruction.format(self.format_subject(subject))
         if k == -1:
             k = train_df.shape[0]
         for i in range(k):
@@ -126,7 +132,7 @@ class EvalHandler:
             outputs = self.model.generate(
                 **encode_inputs,
                 max_new_tokens=1,
-                pad_token_id=self.tokenizer.pad_token_id
+                pad_token_id=self.tokenizer.pad_token_id,
             )
             answers.extend(
                 self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
@@ -146,7 +152,7 @@ class EvalHandler:
             batch_prompts.append(mini_batch)
         return batch_prompts
 
-    def evaluate(self, dev_df, test_df, task):
+    def evaluate(self, dev_df, test_df, task, debug=False):
         records = []
         for i in range(test_df.shape[0]):
             prompt_end = self.format_example(test_df, i, include_answer=False)
@@ -158,7 +164,9 @@ class EvalHandler:
                 prompt = "\n\n".join(prompt_split)
             label = test_df.iloc[i, test_df.shape[1] - 1]
             records.append({"prompt": prompt, "answer": label})
-
+        if debug:
+            with open("debug.json", "w") as w:
+                json.dump(records, w, ensure_ascii=False)
         pred_answers = self.batch_infer([record["prompt"] for record in records])
         gold_answers = [record["answer"] for record in records]
         return {"pred_answers": pred_answers, "gold_answers": gold_answers}
