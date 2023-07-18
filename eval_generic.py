@@ -79,7 +79,10 @@ class EvalHandler:
             use_fast = "mosaicml/mpt-30b" in pretrained_or_path
             # however, tensor parallel for running falcon will occur bugs
             tokenizer = AutoTokenizer.from_pretrained(
-                pretrained_or_path, use_fast=use_fast, padding_side="left"
+                pretrained_or_path,
+                use_fast=use_fast,
+                padding_side="left",
+                trust_remote_code=True,
             )
             model = AutoModelForCausalLM.from_pretrained(
                 pretrained_or_path,
@@ -161,7 +164,7 @@ class EvalHandler:
                     .cpu()
                     .numpy()
                 )
-                pred = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(prob)]
+                pred = {i: char for i, char in enumerate(self.choices)}[np.argmax(prob)]
                 preds.append(pred)
             answers.extend(preds)
         answers = [answer[-1] for answer in answers]
